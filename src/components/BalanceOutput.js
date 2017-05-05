@@ -76,23 +76,34 @@ BalanceOutput.propTypes = {
 };
 
 const mapStateToProps = ({ accounts, journalEntries, userInput }) => {
-  const balance = accounts
-    .map(account => {
-      const associatedJournalEnrties = journalEntries.filter(entry => account.ACCOUNT === entry.ACCOUNT)
-      const entriesFilteredByDate = associatedJournalEnrties.filter(entry => userInput.startPeriod <= entry.PERIOD && userInput.endPeriod >= entry.PERIOD)
-      const accountCredit = entriesFilteredByDate.reduce((acc, entry) => acc + entry.CREDIT, 0)
-      const accountDebit = entriesFilteredByDate.reduce((acc, entry) => acc + entry.DEBIT, 0)
-      const accountBalance = accountDebit - accountCredit
-
-      return {
-        ACCOUNT: account.ACCOUNT,
-        DESCRIPTION: account.LABEL,
-        DEBIT: accountDebit,
-        CREDIT: accountCredit,
-        BALANCE: accountBalance
+  const balance = accounts.map(account => {
+    const associatedJournalEnrties = journalEntries.filter(entry => account.ACCOUNT === entry.ACCOUNT)
+    const entriesFilteredByDate = associatedJournalEnrties.filter(entry => {
+      if (Object.prototype.toString.call(userInput.startPeriod) === '[object Date]') {
+        if (isNaN(userInput.startPeriod)) {
+          return Date.parse(userInput.endPeriod) >= Date.parse(entry.PERIOD)
+        }
       }
+      return Date.parse(userInput.startPeriod) <= Date.parse(entry.PERIOD) && Date.parse(userInput.endPeriod) >= Date.parse(entry.PERIOD)
     })
-    .filter(account => userInput.startAccount <= account.ACCOUNT && userInput.endAccount >= account.ACCOUNT)
+    const accountCredit = entriesFilteredByDate.reduce((acc, entry) => acc + entry.CREDIT, 0)
+    const accountDebit = entriesFilteredByDate.reduce((acc, entry) => acc + entry.DEBIT, 0)
+    const accountBalance = accountDebit - accountCredit
+
+    return {
+      ACCOUNT: account.ACCOUNT,
+      DESCRIPTION: account.LABEL,
+      DEBIT: accountDebit,
+      CREDIT: accountCredit,
+      BALANCE: accountBalance
+    }
+  })
+  .filter(account => {
+    if (isNaN(userInput.endAccount)) {
+      return (account.DEBIT || account.CREDIT) && (userInput.startAccount <= account.ACCOUNT)
+    }
+    return (account.DEBIT || account.CREDIT) && (userInput.startAccount <= account.ACCOUNT && userInput.endAccount >= account.ACCOUNT)
+  })
 
   const totalCredit = balance.reduce((acc, entry) => acc + entry.CREDIT, 0);
   const totalDebit = balance.reduce((acc, entry) => acc + entry.DEBIT, 0);
